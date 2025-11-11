@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Oracle SQL Formatter for DBeaver
-Simple and reliable formatter for Oracle SQL style
 """
 
 import sys
@@ -13,189 +12,167 @@ import re
 
 
 def load_config():
-    """Load configuration from default locations"""
-    config_paths = [
-        Path.home() / '.oracle_formatter.yaml',
-        Path('.oracle_formatter.yaml'),
-    ]
-
-    default_config = {
-        'indent_width': 9,
-        'keyword_case': 'upper',
-        'comma_before': True,
-        'line_between_queries': 2,
-    }
-
-    for config_path in config_paths:
-        if config_path.exists():
-            try:
-                with open(config_path, 'r') as f:
-                    user_config = yaml.safe_load(f) or {}
-                    default_config.update(user_config)
-                    break
-            except Exception:
-                pass
-
-    return default_config
+    """Load configuration"""
+    return {'column_indent': 5}
 
 
-def merge_case_statements(text):
+def smart_split_on_comma(text):
     """
-    Merge multi-line CASE statements into single lines.
-    Handles nested CASE statements correctly.
+    Split text on commas, but not commas inside parentheses or CASE...END
     """
-    lines = text.split('\n')
-    result = []
+    items = []
+    current = []
+    paren_depth = 0
+    case_depth = 0
     i = 0
 
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
+    while i < len(text):
+        char = text[i]
 
-        # Check if this line contains CASE keyword
-        if re.search(r'\bCASE\b', stripped, re.IGNORECASE):
-            # Get base indentation
-            indent_match = re.match(r'^(\s*)', line)
-            base_indent = indent_match.group(1) if indent_match else ''
+        # Track parentheses
+        if char == '(':
+            paren_depth += 1
+        elif char == ')':
+            paren_depth -= 1
 
-            # Collect all parts of the CASE statement
-            case_parts = [stripped]
-            i += 1
+        # Track CASE...END
+        # Look ahead for keywords
+        if text[i:i+4].upper() == 'CASE':
+            case_depth += 1
+        elif text[i:i+3].upper() == 'END':
+            # Make sure it's END keyword, not part of another word
+            if i + 3 >= len(text) or not text[i+3].isalnum():
+                case_depth -= 1
 
-            # Track CASE depth for nested statements
-            case_depth = stripped.upper().count('CASE') - stripped.upper().count('END')
-
-            # Collect lines until all CASE statements are closed
-            while i < len(lines) and case_depth > 0:
-                current_line = lines[i].strip()
-
-                if current_line:  # Skip empty lines
-                    case_parts.append(current_line)
-
-                    # Update depth
-                    case_depth += current_line.upper().count('CASE')
-                    case_depth -= current_line.upper().count('END')
-
-                i += 1
-
-            # Merge into single line
-            merged = base_indent + ' '.join(case_parts)
-            result.append(merged)
+        # Split on comma only if not inside parentheses or CASE
+        if char == ',' and paren_depth == 0 and case_depth == 0:
+            items.append(''.join(current))
+            current = []
         else:
-            result.append(line)
-            i += 1
+            current.append(char)
 
-    return '\n'.join(result)
+        i += 1
+
+    # Add the last item
+    if current:
+        items.append(''.join(current))
+
+    return items
 
 
 def format_sql(sql_text, config):
-    """Format SQL text with Oracle style"""
+    """Format SQL with Oracle style"""
 
-    # Use sqlparse for basic formatting
-    formatted = sqlparse.format(
-        sql_text,
-        keyword_case='upper',
-        identifier_case=None,
-        strip_comments=False,
-        reindent=True,
-        indent_tabs=False,
-        indent_width=config.get('indent_width', 9),
-        use_space_around_operators=True,
-        comma_first=config.get('comma_before', True),
-        reindent_aligned=True,
-    )
+    # Step 1: Basic cleanup and keyword uppercase
+    formatted = sqlparse.format(sql_text, keyword_case='upper', strip_comments=False)
 
-    # Post-process: merge standalone commas with next line
+    # Step 2: Remove all line breaks - work with single line
+    formatted = ' '.join(formatted.split())
+
+    # Step 3: Add line breaks at key points
+    # Add newline before FROM
+    formatted = re.sub(r'\s+FROM\s+', '\n  FROM ', formatted, flags=re.IGNORECASE)
+
+    # Add newline before WHERE
+    formatted = re.sub(r'\s+WHERE\s+', '\n WHERE ', formatted, flags=re.IGNORECASE)
+
+    # Add newline before JOIN
+    formatted = re.sub(r'\s+(LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|FULL\s+JOIN|CROSS\s+JOIN|JOIN)\s+',
+                      r'\n  \1 ', formatted, flags=re.IGNORECASE)
+
+    # Add newline before ON
+    formatted = re.sub(r'\s+ON\s+', '\n    ON ', formatted, flags=re.IGNORECASE)
+
+    # Add newline before ORDER BY
+    formatted = re.sub(r'\s+ORDER\s+BY\s+', '\n ORDER BY ', formatted, flags=re.IGNORECASE)
+
+    # Add newline before GROUP BY
+    formatted = re.sub(r'\s+GROUP\s+BY\s+', '\n GROUP BY ', formatted, flags=re.IGNORECASE)
+
+    # Step 4: Handle commas in SELECT list
     lines = formatted.split('\n')
-    merged_lines = []
-    i = 0
+    result = []
 
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
+    for line in lines:
+        if line.strip().startswith('SELECT'):
+            # This is the SELECT line - split on commas smartly
+            select_part, rest = line.split('SELECT', 1)
+            items = smart_split_on_comma(rest)
 
-        # If this is a standalone comma, merge with next line
-        if stripped == ',' and i + 1 < len(lines):
-            next_line = lines[i + 1]
-            indent = len(line) - len(stripped)
-            merged = ' ' * indent + ', ' + next_line.strip()
-            merged_lines.append(merged)
-            i += 2
+            # First item goes on SELECT line
+            result.append('SELECT ' + items[0].strip())
+
+            # Rest go on new lines with comma prefix
+            for item in items[1:]:
+                result.append('     , ' + item.strip())
         else:
-            merged_lines.append(line)
-            i += 1
+            result.append(line)
 
-    formatted = '\n'.join(merged_lines)
+    formatted = '\n'.join(result)
 
-    # Post-process: merge CASE statements into single lines
-    formatted = merge_case_statements(formatted)
+    # Step 5: Format CASE statements
+    formatted = format_case_statements(formatted)
 
-    return formatted
+    return formatted.strip()
+
+
+def format_case_statements(text):
+    """Format CASE statements with WHEN/ELSE on new lines"""
+
+    # Track CASE depth
+    def process_case(match):
+        case_content = match.group(0)
+
+        # Add line breaks before WHEN
+        case_content = re.sub(r'\s+WHEN\s+', '\n          WHEN ', case_content, flags=re.IGNORECASE)
+
+        # Add line breaks before ELSE (but not for NULLIF, etc)
+        case_content = re.sub(r'(?<![A-Z])ELSE\s+', '\n          ELSE ', case_content, flags=re.IGNORECASE)
+
+        # Add line break before final END
+        # This is tricky - we need to find the matching END
+        # For now, let's do a simple approach
+        parts = re.split(r'(\bEND\b)', case_content, flags=re.IGNORECASE)
+
+        if len(parts) >= 2:
+            # Rejoin with newline before last END
+            result_parts = []
+            for i, part in enumerate(parts):
+                if part.upper() == 'END' and i == len(parts) - 2:
+                    result_parts.append('\n       ' + part)
+                else:
+                    result_parts.append(part)
+            case_content = ''.join(result_parts)
+
+        return case_content
+
+    # Find outermost CASE statements and process them
+    # This regex finds CASE...END but needs to handle nesting
+    text = re.sub(r'CASE\s+.*?\s+END', process_case, text, flags=re.IGNORECASE | re.DOTALL)
+
+    return text
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Oracle SQL Formatter for DBeaver',
-        epilog='Example: echo "select * from emp" | python oracle_formatter.py'
-    )
+    parser = argparse.ArgumentParser(description='Oracle SQL Formatter')
 
-    parser.add_argument(
-        '--indent-width',
-        type=int,
-        help='Number of spaces for indentation (default: 9)'
-    )
-
-    parser.add_argument(
-        '--keyword-case',
-        choices=['upper', 'lower', 'capitalize'],
-        help='Keyword case transformation (default: upper)'
-    )
-
-    parser.add_argument(
-        '--comma-before',
-        action='store_true',
-        default=True,
-        help='Place comma before items in lists (default: True)'
-    )
-
-    parser.add_argument(
-        '--version',
-        action='version',
-        version='Oracle SQL Formatter 2.0.0'
-    )
+    parser.add_argument('--version', action='version', version='2.0.0')
 
     args = parser.parse_args()
-
-    # Load configuration
     config = load_config()
 
-    # Override with command-line arguments
-    if args.indent_width is not None:
-        config['indent_width'] = args.indent_width
-    if args.keyword_case is not None:
-        config['keyword_case'] = args.keyword_case
-    if args.comma_before is not None:
-        config['comma_before'] = args.comma_before
-
-    # Read SQL from stdin
     try:
         sql_input = sys.stdin.read()
 
         if not sql_input.strip():
-            print("Error: No SQL input provided", file=sys.stderr)
+            print("Error: No SQL input", file=sys.stderr)
             sys.exit(1)
 
-        # Format the SQL
         formatted_sql = format_sql(sql_input, config)
 
-        # Output to stdout with proper error handling
-        try:
-            sys.stdout.write(formatted_sql)
-            sys.stdout.write('\n')
-            sys.stdout.flush()
-        except BrokenPipeError:
-            sys.stderr.close()
-            sys.exit(0)
+        sys.stdout.write(formatted_sql)
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
     except KeyboardInterrupt:
         sys.exit(0)
