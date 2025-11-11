@@ -1,0 +1,22 @@
+# Oracle SQL Formatter Configuration
+
+# Indentation width (number of spaces)
+indent_width: 2
+
+# Keyword case: upper, lower, capitalize
+keyword_case: upper
+
+# Identifier case: upper, lower, preserve
+identifier_case: lower
+
+# Put comma before the item (true) or after (false)
+comma_before: false
+
+# Number of blank lines between queries
+line_between_queries: 2
+
+# Reindent aligned (better formatting for complex queries)
+reindent_aligned: true
+
+# Right margin for line wrapping (0 = no wrapping)
+wrap_after: 80
