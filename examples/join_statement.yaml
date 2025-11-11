@@ -1,0 +1,18 @@
+# JOIN 문 포맷팅 예시
+name: "JOIN with ON conditions"
+
+input: |
+  SELECT A.SITE_CD, B.ORG_NM FROM PMF_ASSUM_ORGCST_APPR A LEFT JOIN CO_ORG B ON A.SITE_CD = B.ORG_CD AND A.YM = B.YM
+
+expected_output: |
+  SELECT A.SITE_CD
+       , B.ORG_NM
+    FROM PMF_ASSUM_ORGCST_APPR A
+    LEFT JOIN CO_ORG B
+      ON A.SITE_CD = B.ORG_CD
+     AND A.YM = B.YM
+
+rules:
+  - join_indent: 2                # JOIN 앞 2칸 들여쓰기
+  - on_indent: 4                  # ON 앞 4칸 들여쓰기
+  - and_or_indent: 3              # AND/OR 앞 3칸 들여쓰기

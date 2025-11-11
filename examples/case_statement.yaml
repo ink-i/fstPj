@@ -1,0 +1,19 @@
+# CASE 문 포맷팅 예시
+name: "CASE statement with WHEN/ELSE"
+
+input: |
+  SELECT A.SITE_CD, CASE WHEN H.LV = 1 THEN F.LCLCR_CD ELSE NULL END LCLCR_CD FROM PMF_ASSUM_ORGCST_APPR A
+
+expected_output: |
+  SELECT A.SITE_CD
+       , CASE
+            WHEN H.LV = 1 THEN F.LCLCR_CD
+            ELSE NULL
+         END LCLCR_CD
+    FROM PMF_ASSUM_ORGCST_APPR A
+
+rules:
+  - case_when_newline: true       # WHEN이 나올 때 줄바꿈
+  - case_else_newline: true       # ELSE가 나올 때 줄바꿈
+  - case_when_indent: 10          # WHEN 앞 10칸 들여쓰기
+  - case_end_indent: 7            # END 앞 7칸 들여쓰기

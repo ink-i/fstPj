@@ -1,0 +1,38 @@
+# Oracle SQL Formatter Rules
+# 이 파일을 수정하여 포맷팅 룰을 변경할 수 있습니다
+
+# 기본 들여쓰기 설정
+indentation:
+  column_indent: 5          # SELECT 컬럼 쉼표 앞 들여쓰기
+  from_indent: 2            # FROM 키워드 앞 들여쓰기
+  where_indent: 1           # WHERE 키워드 앞 들여쓰기
+  join_indent: 2            # JOIN 키워드 앞 들여쓰기
+  on_indent: 4              # ON 키워드 앞 들여쓰기
+  and_or_indent: 3          # AND/OR 키워드 앞 들여쓰기 (WHERE, ON 절)
+
+# SELECT 절 설정
+select:
+  no_newline_after: true    # SELECT 후 줄바꿈 없이 바로 컬럼 시작
+  comma_before: true        # 쉼표를 컬럼 앞에 위치
+
+# CASE 문 설정
+case:
+  when_newline: true        # WHEN 키워드 앞에 줄바꿈
+  else_newline: true        # ELSE 키워드 앞에 줄바꿈
+  end_newline: true         # END 키워드 앞에 줄바꿈
+  when_indent: 10           # WHEN 들여쓰기
+  else_indent: 10           # ELSE 들여쓰기
+  end_indent: 7             # END 들여쓰기
+
+# 키워드 설정
+keywords:
+  case: "upper"             # 키워드를 대문자로 (upper/lower/preserve)
+
+# FROM 절 설정
+from:
+  table_space: 1            # FROM 키워드와 테이블명 사이 공백 (현재는 자동)
+
+# 기타
+misc:
+  preserve_comments: true   # 주석 보존
+  line_between_queries: 2   # 쿼리 사이 빈 줄 개수
