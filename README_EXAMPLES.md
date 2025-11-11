@@ -137,10 +137,94 @@ examples:
 
 ## 🚀 DBeaver 설정
 
-DBeaver에서 사용할 때도 동일한 `format_rules.yaml`을 참조합니다:
+### 설정 방법
 
+**1. DBeaver Preferences 열기**
+- Windows/Linux: `Window` > `Preferences`
+- Mac: `DBeaver` > `Preferences`
+
+**2. SQL Editor > Formatting 찾기**
+- 왼쪽 트리에서: `Editors` > `SQL Editor` > `Formatting`
+
+**3. External Formatter 선택**
+- `Formatter:` 드롭다운에서 `External`를 선택
+
+**4. Command 설정 (다음 중 하나 선택)**
+
+#### 방법 1: 절대 경로 사용 (권장)
 ```
-Command: python /home/user/fstPj/oracle_formatter.py
+/usr/local/bin/python /home/user/fstPj/oracle_formatter.py
 ```
 
-룰을 변경하고 DBeaver에서 다시 포맷하면 바로 적용됩니다!
+#### 방법 2: 상대 경로 사용
+```
+python /home/user/fstPj/oracle_formatter.py
+```
+
+#### 방법 3: Command와 Arguments 분리
+- Command: `/usr/local/bin/python`
+- Arguments: `/home/user/fstPj/oracle_formatter.py`
+
+**5. Apply 클릭 후 OK**
+
+### 사용 방법
+
+1. SQL 에디터에서 SQL 작성
+2. SQL 선택 (전체 선택: Ctrl+A / Cmd+A)
+3. 포맷 실행:
+   - Windows/Linux: `Ctrl + Shift + F`
+   - Mac: `Cmd + Shift + F`
+
+### ⚠️ 문제 해결
+
+#### "Python" 또는 빈 결과만 나오는 경우
+
+**원인**: DBeaver가 formatter를 제대로 실행하지 못함
+
+**해결 방법**:
+
+1. **Python 경로 확인**
+   ```bash
+   which python
+   which python3
+   ```
+   결과를 Command에 정확히 입력
+
+2. **Formatter 파일 권한 확인**
+   ```bash
+   chmod +x /home/user/fstPj/oracle_formatter.py
+   ```
+
+3. **터미널에서 먼저 테스트**
+   ```bash
+   echo "SELECT A, B FROM T" | python /home/user/fstPj/oracle_formatter.py
+   ```
+   이게 작동하면 DBeaver 설정 문제입니다.
+
+4. **DBeaver 로그 확인**
+   - `Help` > `Error Log` 열어서 에러 메시지 확인
+
+5. **절대 경로 사용**
+   상대 경로 대신 전체 경로 사용:
+   ```
+   /usr/local/bin/python /home/user/fstPj/oracle_formatter.py
+   ```
+
+#### 포맷은 되지만 스타일이 이상한 경우
+
+`format_rules.yaml` 파일을 수정하세요. 변경 후 DBeaver에서 다시 포맷하면 바로 적용됩니다!
+
+### ✅ 정상 작동 확인
+
+포맷 전:
+```sql
+SELECT A.SITE_CD, A.SITE_NM FROM PMA_CON_INFO A WHERE A.YM = '202510'
+```
+
+포맷 후:
+```sql
+SELECT A.SITE_CD
+     , A.SITE_NM
+  FROM PMA_CON_INFO A
+ WHERE A.YM = '202510'
+```
