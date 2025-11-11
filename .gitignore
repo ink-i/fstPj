@@ -40,3 +40,5 @@ Thumbs.db
 # Test files
 test_*.sql
 sample_output.sql
+user_*.sql
+*_query.sql
