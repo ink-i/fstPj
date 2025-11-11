@@ -207,13 +207,28 @@ Examples:
         # Format the SQL
         formatted_sql = format_sql(sql_input, config)
 
-        # Output to stdout
-        print(formatted_sql, end='')
+        # Output to stdout with proper error handling
+        try:
+            sys.stdout.write(formatted_sql)
+            sys.stdout.flush()
+        except BrokenPipeError:
+            # Handle broken pipe gracefully
+            sys.stderr.close()
+            sys.exit(0)
 
     except KeyboardInterrupt:
         sys.exit(0)
+    except BrokenPipeError:
+        # Python flushes standard streams on exit; redirect remaining output
+        # to devnull to avoid another BrokenPipeError at shutdown
+        import os
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(0)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 
