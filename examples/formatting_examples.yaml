@@ -1,0 +1,105 @@
+# Oracle SQL Formatter - 포맷팅 예시 모음
+# 이 파일에 원하는 포맷팅 예시를 추가하거나 수정하세요
+
+examples:
+  # 1. 기본 SELECT 문
+  - name: "Basic SELECT with columns"
+    description: "SELECT 후 즉시 컬럼 시작, 쉼표 앞에 위치"
+    input: |
+      SELECT A.SITE_CD, B.ORG_NM, A.YM FROM PMF_ASSUM_ORGCST_APPR A WHERE A.YM = '202509'
+
+    expected_output: |
+      SELECT A.SITE_CD
+           , B.ORG_NM
+           , A.YM
+        FROM PMF_ASSUM_ORGCST_APPR A
+       WHERE A.YM = '202509'
+
+    rules:
+      column_indent: 5
+      from_indent: 2
+      where_indent: 1
+
+  # 2. CASE 문 포맷팅
+  - name: "CASE statement with WHEN/ELSE"
+    description: "CASE 문에서 WHEN, ELSE가 나올 때마다 줄바꿈"
+    input: |
+      SELECT A.SITE_CD, CASE WHEN H.LV = 1 THEN F.LCLCR_CD ELSE NULL END LCLCR_CD FROM PMF_ASSUM_ORGCST_APPR A
+
+    expected_output: |
+      SELECT A.SITE_CD
+           , CASE
+                WHEN H.LV = 1 THEN F.LCLCR_CD
+                ELSE NULL
+             END LCLCR_CD
+        FROM PMF_ASSUM_ORGCST_APPR A
+
+    rules:
+      case_when_newline: true
+      case_else_newline: true
+      case_when_indent: 10
+      case_end_indent: 7
+
+  # 3. JOIN 문 포맷팅
+  - name: "JOIN with ON conditions"
+    description: "JOIN과 ON 조건 포맷팅"
+    input: |
+      SELECT A.SITE_CD, B.ORG_NM FROM PMF_ASSUM_ORGCST_APPR A LEFT JOIN CO_ORG B ON A.SITE_CD = B.ORG_CD AND A.YM = B.YM
+
+    expected_output: |
+      SELECT A.SITE_CD
+           , B.ORG_NM
+        FROM PMF_ASSUM_ORGCST_APPR A
+        LEFT JOIN CO_ORG B
+          ON A.SITE_CD = B.ORG_CD
+         AND A.YM = B.YM
+
+    rules:
+      join_indent: 2
+      on_indent: 4
+      and_or_indent: 3
+
+  # 4. 중첩된 CASE 문
+  - name: "Nested CASE statements"
+    description: "CASE 안에 또 다른 CASE가 있는 경우"
+    input: |
+      SELECT A.SITE_CD, CASE WHEN H.LV = 1 THEN NVL(CASE WHEN f.LCLCR_CD = 'KRW' THEN Round(Nvl(D.ORGNTIM_AMT,0)/1000000) ELSE D.ORGNTIM_AMT END, 0) ELSE NULL END ORGNTIM_AMT FROM PMF_ASSUM_ORGCST_APPR A
+
+    expected_output: |
+      SELECT A.SITE_CD
+           , CASE
+                WHEN H.LV = 1 THEN NVL(CASE
+                WHEN f.LCLCR_CD = 'KRW' THEN Round(Nvl(D.ORGNTIM_AMT,0)/1000000)
+                ELSE D.ORGNTIM_AMT
+             END, 0)
+                ELSE NULL
+             END ORGNTIM_AMT
+        FROM PMF_ASSUM_ORGCST_APPR A
+
+    rules:
+      case_when_newline: true
+      case_else_newline: true
+
+  # 5. 복잡한 쿼리 (서브쿼리 포함)
+  - name: "Complex query with subquery"
+    description: "서브쿼리가 포함된 복잡한 SELECT 문"
+    input: |
+      SELECT A.EMPNO, A.ENAME, (SELECT DNAME FROM DEPT WHERE DEPTNO = A.DEPTNO) AS DEPT_NAME FROM EMP A WHERE A.SAL > 2000 ORDER BY A.EMPNO
+
+    expected_output: |
+      SELECT A.EMPNO
+           , A.ENAME
+           , (SELECT DNAME FROM DEPT WHERE DEPTNO = A.DEPTNO) AS DEPT_NAME
+        FROM EMP A
+       WHERE A.SAL > 2000
+       ORDER BY A.EMPNO
+
+    rules:
+      column_indent: 5
+      from_indent: 2
+
+# 사용 방법:
+# 1. 이 파일에 새로운 예시를 추가하세요
+# 2. format_rules.yaml에서 전역 룰을 설정하세요
+# 3. python oracle_formatter.py --show-rules로 현재 룰 확인
+# 4. echo "SQL쿼리" | python oracle_formatter.py 로 테스트

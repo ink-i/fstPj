@@ -4,13 +4,11 @@
 
 ```
 fstPj/
-├── oracle_formatter.py       # 메인 포맷터
-├── format_rules.yaml          # 포맷팅 룰 설정 파일 ⭐
-├── examples/                  # 예시 파일 디렉토리 ⭐
-│   ├── basic_select.yaml      # 기본 SELECT 문 예시
-│   ├── case_statement.yaml    # CASE 문 예시
-│   └── join_statement.yaml    # JOIN 문 예시
-└── README_EXAMPLES.md         # 이 파일
+├── oracle_formatter.py              # 메인 포맷터
+├── format_rules.yaml                # 포맷팅 룰 설정 파일 ⭐
+├── examples/                        # 예시 파일 디렉토리 ⭐
+│   └── formatting_examples.yaml    # 모든 포맷팅 예시 (통합 파일)
+└── README_EXAMPLES.md               # 이 파일
 ```
 
 ## 🎯 포맷팅 룰 수정 방법
@@ -35,26 +33,30 @@ case:
 
 ### 2. 예시 파일 추가/수정
 
-`examples/` 디렉토리에 YAML 파일을 추가하거나 수정하세요.
+`examples/formatting_examples.yaml` 파일을 열어서 예시를 추가하거나 수정하세요.
 
-**새 예시 파일 만들기:**
+**새 예시 추가하기:**
 
 ```yaml
-# examples/my_custom_format.yaml
-name: "내가 원하는 포맷"
+# examples/formatting_examples.yaml
+examples:
+  # ... 기존 예시들 ...
 
-input: |
-  SELECT A.COL1, A.COL2 FROM TABLE_A A WHERE A.ID = 1
+  # 새로운 예시 추가
+  - name: "내가 원하는 포맷"
+    description: "설명을 여기에 작성"
+    input: |
+      SELECT A.COL1, A.COL2 FROM TABLE_A A WHERE A.ID = 1
 
-expected_output: |
-  SELECT A.COL1
-       , A.COL2
-    FROM TABLE_A A
-   WHERE A.ID = 1
+    expected_output: |
+      SELECT A.COL1
+           , A.COL2
+        FROM TABLE_A A
+       WHERE A.ID = 1
 
-rules:
-  - column_indent: 5
-  - from_indent: 2
+    rules:
+      column_indent: 5
+      from_indent: 2
 ```
 
 ## 🔧 주요 설정 항목
@@ -89,10 +91,10 @@ rules:
 python oracle_formatter.py --show-rules
 ```
 
-### 2. 예시 파일로 테스트
+### 2. 예시 파일 확인
 ```bash
-# 예시 파일의 input을 복사해서 테스트
-cat examples/basic_select.yaml | grep -A 2 "input:" | tail -1 | python oracle_formatter.py
+# 예시 파일 열어보기
+cat examples/formatting_examples.yaml
 ```
 
 ### 3. 커스텀 SQL 테스트
@@ -104,21 +106,24 @@ echo "SELECT A, B FROM T WHERE X = 1" | python oracle_formatter.py
 
 새로운 포맷팅 패턴을 추가하려면:
 
-1. `examples/` 디렉토리에 새 YAML 파일 생성
-2. 다음 형식으로 작성:
+1. `examples/formatting_examples.yaml` 파일 열기
+2. `examples:` 리스트에 새 항목 추가:
 
 ```yaml
-name: "포맷팅 패턴 이름"
+examples:
+  # 기존 예시들...
 
-input: |
-  포맷 전 SQL
+  - name: "포맷팅 패턴 이름"
+    description: "이 패턴에 대한 설명"
+    input: |
+      포맷 전 SQL
 
-expected_output: |
-  포맷 후 SQL
+    expected_output: |
+      포맷 후 SQL
 
-rules:
-  - 적용할_룰1: 값
-  - 적용할_룰2: 값
+    rules:
+      적용할_룰1: 값
+      적용할_룰2: 값
 ```
 
 3. 필요한 경우 `format_rules.yaml`에 새 룰 추가
