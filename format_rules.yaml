@@ -7,8 +7,10 @@ indentation:
   from_indent: 2            # FROM 키워드 앞 들여쓰기
   where_indent: 1           # WHERE 키워드 앞 들여쓰기
   join_indent: 2            # JOIN 키워드 앞 들여쓰기
-  on_indent: 4              # ON 키워드 앞 들여쓰기
+  on_indent: 4              # ON 키워드 앞 들여쓰기 (일반 JOIN)
+  left_join_on_indent: 9    # ON 키워드 앞 들여쓰기 (LEFT/RIGHT/FULL JOIN)
   and_or_indent: 3          # AND/OR 키워드 앞 들여쓰기 (WHERE, ON 절)
+  subquery_indent: 11       # 서브쿼리 내부 SELECT 들여쓰기
 
 # SELECT 절 설정
 select:
@@ -17,11 +19,12 @@ select:
 
 # CASE 문 설정
 case:
-  when_newline: true        # WHEN 키워드 앞에 줄바꿈
+  first_when_inline: true   # 첫 번째 WHEN을 CASE와 같은 줄에
+  when_newline: true        # 이후 WHEN 키워드 앞에 줄바꿈
   else_newline: true        # ELSE 키워드 앞에 줄바꿈
   end_newline: true         # END 키워드 앞에 줄바꿈
-  when_indent: 10           # WHEN 들여쓰기
-  else_indent: 10           # ELSE 들여쓰기
+  when_indent: 12           # WHEN 들여쓰기 (이후 WHEN들)
+  else_indent: 7            # ELSE 들여쓰기
   end_indent: 7             # END 들여쓰기
 
 # 키워드 설정

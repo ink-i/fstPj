@@ -3,100 +3,102 @@
 
 examples:
   # 1. 기본 SELECT 문
-  - name: "Basic SELECT with columns"
-    description: "SELECT 후 즉시 컬럼 시작, 쉼표 앞에 위치"
+  - name: "기본룰 (Basic SELECT)"
+    description: "기본 SELECT 문 - 컬럼 쉼표 앞에 위치, WHERE와 AND 조건"
     input: |
-      SELECT A.SITE_CD, B.ORG_NM, A.YM FROM PMF_ASSUM_ORGCST_APPR A WHERE A.YM = '202509'
+      SELECT A.SITE_CD, A.SITE_NM, A.YM FROM PMA_CON_INFO A WHERE A.SITE_CD = 'TEST' AND A.YM = '202510'
 
     expected_output: |
       SELECT A.SITE_CD
-           , B.ORG_NM
+           , A.SITE_NM
            , A.YM
-        FROM PMF_ASSUM_ORGCST_APPR A
-       WHERE A.YM = '202509'
+        FROM PMA_CON_INFO A
+       WHERE A.SITE_CD = 'TEST'
+         AND A.YM = '202510'
 
     rules:
       column_indent: 5
       from_indent: 2
       where_indent: 1
+      and_or_indent: 3
 
-  # 2. CASE 문 포맷팅
-  - name: "CASE statement with WHEN/ELSE"
-    description: "CASE 문에서 WHEN, ELSE가 나올 때마다 줄바꿈"
+  # 2. JOIN 문
+  - name: "JOIN"
+    description: "일반 JOIN 문 - ON 조건 4칸 들여쓰기"
     input: |
-      SELECT A.SITE_CD, CASE WHEN H.LV = 1 THEN F.LCLCR_CD ELSE NULL END LCLCR_CD FROM PMF_ASSUM_ORGCST_APPR A
+      SELECT A.SITE_CD, B.CT_ED_YMD FROM PMA_CON_INFO A JOIN PMA_CON_PERIOD B ON A.SITE_CD = B.SITE_CD WHERE A.SITE_CD = 'TEST'
 
     expected_output: |
       SELECT A.SITE_CD
-           , CASE
-                WHEN H.LV = 1 THEN F.LCLCR_CD
-                ELSE NULL
-             END LCLCR_CD
-        FROM PMF_ASSUM_ORGCST_APPR A
-
-    rules:
-      case_when_newline: true
-      case_else_newline: true
-      case_when_indent: 10
-      case_end_indent: 7
-
-  # 3. JOIN 문 포맷팅
-  - name: "JOIN with ON conditions"
-    description: "JOIN과 ON 조건 포맷팅"
-    input: |
-      SELECT A.SITE_CD, B.ORG_NM FROM PMF_ASSUM_ORGCST_APPR A LEFT JOIN CO_ORG B ON A.SITE_CD = B.ORG_CD AND A.YM = B.YM
-
-    expected_output: |
-      SELECT A.SITE_CD
-           , B.ORG_NM
-        FROM PMF_ASSUM_ORGCST_APPR A
-        LEFT JOIN CO_ORG B
-          ON A.SITE_CD = B.ORG_CD
-         AND A.YM = B.YM
+           , B.CT_ED_YMD
+        FROM PMA_CON_INFO A
+        JOIN PMA_CON_PERIOD B
+          ON A.SITE_CD = B.SITE_CD
+       WHERE A.SITE_CD = 'TEST'
 
     rules:
       join_indent: 2
       on_indent: 4
-      and_or_indent: 3
 
-  # 4. 중첩된 CASE 문
-  - name: "Nested CASE statements"
-    description: "CASE 안에 또 다른 CASE가 있는 경우"
+  # 3. LEFT JOIN 문
+  - name: "LEFT JOIN"
+    description: "LEFT JOIN 문 - ON 조건 9칸 들여쓰기"
     input: |
-      SELECT A.SITE_CD, CASE WHEN H.LV = 1 THEN NVL(CASE WHEN f.LCLCR_CD = 'KRW' THEN Round(Nvl(D.ORGNTIM_AMT,0)/1000000) ELSE D.ORGNTIM_AMT END, 0) ELSE NULL END ORGNTIM_AMT FROM PMF_ASSUM_ORGCST_APPR A
+      SELECT A.SITE_CD, B.CT_ED_YMD FROM PMA_CON_INFO A LEFT JOIN PMA_CON_PERIOD B ON A.SITE_CD = B.SITE_CD WHERE A.SITE_CD = 'TEST'
 
     expected_output: |
       SELECT A.SITE_CD
-           , CASE
-                WHEN H.LV = 1 THEN NVL(CASE
-                WHEN f.LCLCR_CD = 'KRW' THEN Round(Nvl(D.ORGNTIM_AMT,0)/1000000)
-                ELSE D.ORGNTIM_AMT
-             END, 0)
-                ELSE NULL
-             END ORGNTIM_AMT
-        FROM PMF_ASSUM_ORGCST_APPR A
+           , B.CT_ED_YMD
+        FROM PMA_CON_INFO A
+        LEFT JOIN PMA_CON_PERIOD B
+               ON A.SITE_CD = B.SITE_CD
+       WHERE A.SITE_CD = 'TEST'
 
     rules:
-      case_when_newline: true
-      case_else_newline: true
+      join_indent: 2
+      left_join_on_indent: 9
 
-  # 5. 복잡한 쿼리 (서브쿼리 포함)
-  - name: "Complex query with subquery"
-    description: "서브쿼리가 포함된 복잡한 SELECT 문"
+  # 4. CASE 문
+  - name: "CASE 문"
+    description: "CASE 문 - 첫 WHEN은 CASE와 같은 줄, 이후 WHEN은 줄바꿈"
     input: |
-      SELECT A.EMPNO, A.ENAME, (SELECT DNAME FROM DEPT WHERE DEPTNO = A.DEPTNO) AS DEPT_NAME FROM EMP A WHERE A.SAL > 2000 ORDER BY A.EMPNO
+      SELECT A.SITE_CD, CASE WHEN A.SITE_NM = 'TEST' THEN A.SITE_KNM WHEN A.SITE_NM = 'TEST2' THEN A.SITE_NM ELSE A.SITE_KNM END SITE_NM FROM PMA_CON_INFO A WHERE A.SITE_CD = 'TEST' AND A.YM = '202510'
 
     expected_output: |
-      SELECT A.EMPNO
-           , A.ENAME
-           , (SELECT DNAME FROM DEPT WHERE DEPTNO = A.DEPTNO) AS DEPT_NAME
-        FROM EMP A
-       WHERE A.SAL > 2000
-       ORDER BY A.EMPNO
+      SELECT A.SITE_CD
+           , CASE WHEN A.SITE_NM = 'TEST'  THEN A.SITE_KNM
+                  WHEN A.SITE_NM = 'TEST2' THEN A.SITE_NM
+             ELSE A.SITE_KNM
+             END SITE_NM
+        FROM PMA_CON_INFO A
+       WHERE A.SITE_CD = 'TEST'
+         AND A.YM = '202510'
 
     rules:
-      column_indent: 5
+      first_when_inline: true
+      when_indent: 12
+      else_indent: 7
+      end_indent: 7
+
+  # 5. 서브쿼리
+  - name: "서브쿼리 (Subquery)"
+    description: "FROM 절의 서브쿼리 - 서브쿼리 내용 들여쓰기"
+    input: |
+      SELECT A.SITE_NM FROM (SELECT A.SITE_CD AS SITE_NM FROM PMA_CON_INFO A WHERE A.SITE_CD = 'TEST') A WHERE A.SITE_NM = 'TEST'
+
+    expected_output: |
+      SELECT A.SITE_NM
+        FROM (
+                 SELECT A.SITE_CD AS SITE_NM
+                   FROM PMA_CON_INFO A
+                  WHERE A.SITE_CD = 'TEST'
+             ) A
+       WHERE A.SITE_NM = 'TEST'
+
+    rules:
+      subquery_indent: 11
       from_indent: 2
+      where_indent: 1
 
 # 사용 방법:
 # 1. 이 파일에 새로운 예시를 추가하세요

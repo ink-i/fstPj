@@ -23,18 +23,21 @@ def load_rules():
             'where_indent': 1,
             'join_indent': 2,
             'on_indent': 4,
+            'left_join_on_indent': 9,
             'and_or_indent': 3,
+            'subquery_indent': 11,
         },
         'select': {
             'no_newline_after': True,
             'comma_before': True,
         },
         'case': {
+            'first_when_inline': True,
             'when_newline': True,
             'else_newline': True,
             'end_newline': True,
-            'when_indent': 10,
-            'else_indent': 10,
+            'when_indent': 12,
+            'else_indent': 7,
             'end_indent': 7,
         },
         'keywords': {
@@ -141,15 +144,42 @@ def format_sql(sql_text, rules):
         flags=re.IGNORECASE
     )
 
-    # Add newline before ON
-    on_spaces = ' ' * indent['on_indent']
-    formatted = re.sub(r'\s+ON\s+', f'\n{on_spaces}ON ', formatted, flags=re.IGNORECASE)
+    # Add newline before ON with different indentation based on JOIN type
+    # First, add newline before all ON keywords
+    formatted = re.sub(r'\s+ON\s+', r'\nON_PLACEHOLDER ', formatted, flags=re.IGNORECASE)
+
+    # Now process line by line to add correct indentation
+    lines = formatted.split('\n')
+    result_lines = []
+    for i, line in enumerate(lines):
+        if line.strip().startswith('ON_PLACEHOLDER'):
+            # Check if previous line has a multi-word JOIN
+            if i > 0 and re.search(r'(LEFT|RIGHT|INNER|FULL|CROSS)\s+JOIN', lines[i-1], re.IGNORECASE):
+                left_on_spaces = ' ' * indent.get('left_join_on_indent', 9)
+                line = line.replace('ON_PLACEHOLDER', f'{left_on_spaces}ON')
+            else:
+                on_spaces = ' ' * indent['on_indent']
+                line = line.replace('ON_PLACEHOLDER', f'{on_spaces}ON')
+        result_lines.append(line)
+    formatted = '\n'.join(result_lines)
 
     # Add newline before ORDER BY
     formatted = re.sub(r'\s+ORDER\s+BY\s+', f'\n{where_spaces}ORDER BY ', formatted, flags=re.IGNORECASE)
 
     # Add newline before GROUP BY
     formatted = re.sub(r'\s+GROUP\s+BY\s+', f'\n{where_spaces}GROUP BY ', formatted, flags=re.IGNORECASE)
+
+    # Add newline before AND/OR in WHERE and ON clauses
+    and_or_spaces = ' ' * indent['and_or_indent']
+    lines = formatted.split('\n')
+    result_lines = []
+    for line in lines:
+        # Check if this is a WHERE or ON line
+        if re.match(r'\s*(WHERE|ON)\s+', line, re.IGNORECASE):
+            # Add line breaks before AND/OR
+            line = re.sub(r'\s+(AND|OR)\s+', rf'\n{and_or_spaces}\1 ', line, flags=re.IGNORECASE)
+        result_lines.append(line)
+    formatted = '\n'.join(result_lines)
 
     # Step 4: Handle commas in SELECT list
     lines = formatted.split('\n')
@@ -177,6 +207,9 @@ def format_sql(sql_text, rules):
     if rules['case']['when_newline'] or rules['case']['else_newline']:
         formatted = format_case_statements(formatted, rules)
 
+    # Step 6: Format subqueries (basic support)
+    formatted = format_subqueries(formatted, rules)
+
     return formatted.strip()
 
 
@@ -187,46 +220,157 @@ def format_case_statements(text, rules):
     when_indent = ' ' * case_rules['when_indent']
     else_indent = ' ' * case_rules['else_indent']
     end_indent = ' ' * case_rules['end_indent']
+    first_when_inline = case_rules.get('first_when_inline', True)
 
     def process_case(match):
         case_content = match.group(0)
 
-        # Add line breaks before WHEN
-        if case_rules['when_newline']:
-            case_content = re.sub(
-                r'\s+WHEN\s+',
-                f'\n{when_indent}WHEN ',
-                case_content,
-                flags=re.IGNORECASE
-            )
+        if first_when_inline:
+            # Keep CASE and first WHEN on same line, but break subsequent WHENs
+            # Split into tokens to identify first vs subsequent WHENs
+            tokens = re.split(r'\b(WHEN|ELSE|END)\b', case_content, flags=re.IGNORECASE)
+            result = []
+            when_count = 0
 
-        # Add line breaks before ELSE
-        if case_rules['else_newline']:
-            case_content = re.sub(
-                r'(?<![A-Z])ELSE\s+',
-                f'\n{else_indent}ELSE ',
-                case_content,
-                flags=re.IGNORECASE
-            )
-
-        # Add line break before END
-        if case_rules['end_newline']:
-            parts = re.split(r'(\bEND\b)', case_content, flags=re.IGNORECASE)
-            if len(parts) >= 2:
-                result_parts = []
-                for i, part in enumerate(parts):
-                    if part.upper() == 'END' and i == len(parts) - 2:
-                        result_parts.append(f'\n{end_indent}' + part)
+            for i, token in enumerate(tokens):
+                if token.upper() == 'WHEN':
+                    when_count += 1
+                    if when_count == 1:
+                        # First WHEN - keep on same line with CASE
+                        result.append(' ' + token)
                     else:
-                        result_parts.append(part)
-                case_content = ''.join(result_parts)
+                        # Subsequent WHENs - new line with indent
+                        result.append(f'\n{when_indent}' + token)
+                elif token.upper() == 'ELSE':
+                    if case_rules['else_newline']:
+                        result.append(f'\n{else_indent}' + token)
+                    else:
+                        result.append(' ' + token)
+                elif token.upper() == 'END':
+                    if case_rules['end_newline']:
+                        result.append(f'\n{end_indent}' + token)
+                    else:
+                        result.append(' ' + token)
+                else:
+                    result.append(token)
+
+            case_content = ''.join(result)
+        else:
+            # Old behavior - line break before every WHEN
+            if case_rules['when_newline']:
+                case_content = re.sub(
+                    r'\s+WHEN\s+',
+                    f'\n{when_indent}WHEN ',
+                    case_content,
+                    flags=re.IGNORECASE
+                )
+
+            if case_rules['else_newline']:
+                case_content = re.sub(
+                    r'\s+ELSE\s+',
+                    f'\n{else_indent}ELSE ',
+                    case_content,
+                    flags=re.IGNORECASE
+                )
+
+            if case_rules['end_newline']:
+                parts = re.split(r'(\bEND\b)', case_content, flags=re.IGNORECASE)
+                if len(parts) >= 2:
+                    result_parts = []
+                    for i, part in enumerate(parts):
+                        if part.upper() == 'END' and i == len(parts) - 2:
+                            result_parts.append(f'\n{end_indent}' + part)
+                        else:
+                            result_parts.append(part)
+                    case_content = ''.join(result_parts)
 
         return case_content
 
     # Process CASE statements
-    text = re.sub(r'CASE\s+.*?\s+END', process_case, text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'CASE\b.*?\bEND', process_case, text, flags=re.IGNORECASE | re.DOTALL)
 
     return text
+
+
+def format_subqueries(text, rules):
+    """Format subqueries with proper indentation"""
+
+    subquery_indent = rules['indentation'].get('subquery_indent', 11)
+    sub_spaces = ' ' * subquery_indent
+    from_indent_adj = subquery_indent + rules['indentation']['from_indent']
+    where_indent_adj = subquery_indent + rules['indentation']['where_indent']
+
+    # Look for FROM ( pattern and format the subquery
+    # Split FROM (SELECT into FROM ( and then SELECT on new line
+    lines = text.split('\n')
+    result_lines = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        # Check if this line has FROM (SELECT
+        match = re.search(r'FROM\s*\(SELECT', line, re.IGNORECASE)
+        if match:
+            # Split into FROM ( and SELECT parts
+            before_paren = line[:match.end()-6]  # Up to and including (
+            select_part = line[match.end()-6:]  # SELECT onwards
+
+            result_lines.append(before_paren)
+            i += 1
+
+            # Track parentheses
+            paren_count = 1  # We already have opening (
+
+            # Process the SELECT part
+            if select_part.strip():
+                result_lines.append(sub_spaces + select_part.strip())
+
+            # Process subsequent lines until closing )
+            while i < len(lines) and paren_count > 0:
+                subline = lines[i]
+
+                # Check if this line has the closing )
+                if ')' in subline:
+                    # Split on )
+                    parts = subline.split(')')
+                    before_close = parts[0]
+                    after_close = ')'.join(parts[1:])
+
+                    # Process the part before )
+                    if before_close.strip():
+                        stripped = before_close.lstrip()
+                        if stripped.upper().startswith('FROM'):
+                            result_lines.append(' ' * from_indent_adj + stripped)
+                        elif stripped.upper().startswith('WHERE'):
+                            result_lines.append(' ' * where_indent_adj + stripped)
+                        else:
+                            result_lines.append(sub_spaces + stripped)
+
+                    # Add closing paren line
+                    paren_count -= 1
+                    if after_close.strip():
+                        result_lines.append(' ' * 7 + ')' + after_close)
+                    else:
+                        result_lines.append(' ' * 7 + ')')
+                else:
+                    # Regular subquery line
+                    stripped = subline.lstrip()
+                    if stripped.upper().startswith('SELECT'):
+                        result_lines.append(sub_spaces + stripped)
+                    elif stripped.upper().startswith('FROM'):
+                        result_lines.append(' ' * from_indent_adj + stripped)
+                    elif stripped.upper().startswith('WHERE'):
+                        result_lines.append(' ' * where_indent_adj + stripped)
+                    else:
+                        result_lines.append(sub_spaces + stripped)
+
+                i += 1
+        else:
+            result_lines.append(line)
+            i += 1
+
+    return '\n'.join(result_lines)
 
 
 def main():
