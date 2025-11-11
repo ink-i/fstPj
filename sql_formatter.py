@@ -63,8 +63,69 @@ def post_process(formatted_sql, config):
 
             # Use the comma line's indentation
             merged = ' ' * indent + ', ' + next_stripped
-            result.append(merged)
-            i += 2
+
+            # Check if merged line contains CASE
+            merged_stripped = merged.lstrip()
+            if re.search(r'\bCASE\b', merged_stripped, re.IGNORECASE):
+                # Process CASE statement
+                case_lines = [merged_stripped]
+                base_indent = len(merged) - len(merged_stripped)
+                i += 2  # Skip comma and next line
+
+                # Collect lines until we find END
+                while i < len(lines):
+                    current = lines[i]
+                    current_stripped = current.lstrip()
+
+                    if not current_stripped:  # Skip empty lines
+                        i += 1
+                        continue
+
+                    case_lines.append(current_stripped)
+
+                    # Check if this line contains END keyword
+                    if re.search(r'\bEND\b', current_stripped, re.IGNORECASE):
+                        i += 1
+                        break
+                    i += 1
+
+                # Merge all CASE lines into one
+                merged_case = ' ' * base_indent + ' '.join(case_lines)
+                result.append(merged_case)
+                continue
+            else:
+                result.append(merged)
+                i += 2
+                continue
+
+        # Check if this line contains CASE - collect all lines until END
+        if re.search(r'\bCASE\b', stripped, re.IGNORECASE):
+            case_lines = [stripped]  # Start with just the content, not indentation
+            base_indent = len(line) - len(stripped)
+            i += 1
+
+            # Collect lines until we find END
+            found_end = False
+            while i < len(lines):
+                current = lines[i]
+                current_stripped = current.lstrip()
+
+                if not current_stripped:  # Skip empty lines
+                    i += 1
+                    continue
+
+                case_lines.append(current_stripped)
+
+                # Check if this line contains END keyword
+                if re.search(r'\bEND\b', current_stripped, re.IGNORECASE):
+                    found_end = True
+                    i += 1
+                    break
+                i += 1
+
+            # Merge all CASE lines into one
+            merged_case = ' ' * base_indent + ' '.join(case_lines)
+            result.append(merged_case)
             continue
 
         result.append(line)
