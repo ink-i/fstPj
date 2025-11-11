@@ -6,10 +6,8 @@ Formats SQL from stdin and outputs to stdout
 
 import sys
 import argparse
-import os
 from pathlib import Path
 import sqlparse
-from sqlparse.tokens import Keyword, Name
 import yaml
 
 
@@ -21,13 +19,11 @@ def load_config():
     ]
 
     default_config = {
-        'indent_width': 2,
+        'indent_width': 9,
         'keyword_case': 'upper',
         'identifier_case': 'preserve',
-        'comma_before': False,
+        'comma_before': True,
         'line_between_queries': 2,
-        'reindent_aligned': True,
-        'wrap_after': 80,
     }
 
     for config_path in config_paths:
@@ -44,8 +40,41 @@ def load_config():
     return default_config
 
 
+def post_process(formatted_sql, config):
+    """Post-process formatted SQL to match exact style"""
+    import re
+
+    lines = formatted_sql.split('\n')
+    result = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.lstrip()
+
+        # Check if this is a comma-only line
+        if stripped == ',' and i + 1 < len(lines):
+            # Merge comma with next line
+            next_line = lines[i + 1]
+            indent = len(line) - len(stripped)
+            # Get indentation from next line
+            next_stripped = next_line.lstrip()
+            next_indent = len(next_line) - len(next_stripped)
+
+            # Use the comma line's indentation
+            merged = ' ' * indent + ', ' + next_stripped
+            result.append(merged)
+            i += 2
+            continue
+
+        result.append(line)
+        i += 1
+
+    return '\n'.join(result)
+
+
 def format_sql(sql_text, config):
-    """Format SQL text using sqlparse with Oracle-specific settings"""
+    """Format SQL text using sqlparse with Oracle-friendly settings"""
 
     # Parse keyword case
     keyword_case = config.get('keyword_case', 'upper')
@@ -64,11 +93,10 @@ def format_sql(sql_text, config):
         'strip_comments': False,
         'reindent': True,
         'indent_tabs': False,
-        'indent_width': config.get('indent_width', 2),
-        'wrap_after': config.get('wrap_after', 80) if config.get('wrap_after', 80) > 0 else None,
+        'indent_width': config.get('indent_width', 9),
         'use_space_around_operators': True,
-        'comma_first': config.get('comma_before', False),
-        'reindent_aligned': config.get('reindent_aligned', True),
+        'comma_first': config.get('comma_before', True),
+        'reindent_aligned': True,
     }
 
     # Remove None values
@@ -81,6 +109,8 @@ def format_sql(sql_text, config):
     for statement in statements:
         if statement.strip():
             formatted = sqlparse.format(statement, **format_options)
+            # Post-process to fix comma formatting
+            formatted = post_process(formatted, config)
             formatted_statements.append(formatted.strip())
 
     # Join with appropriate line spacing
@@ -101,7 +131,7 @@ def main():
         epilog="""
 Examples:
   echo "select * from emp" | python sql_formatter.py
-  cat query.sql | python sql_formatter.py --indent-width 4
+  cat query.sql | python sql_formatter.py --indent-width 9
   python sql_formatter.py --keyword-case upper < input.sql > output.sql
         """
     )
@@ -109,7 +139,7 @@ Examples:
     parser.add_argument(
         '--indent-width',
         type=int,
-        help='Number of spaces for indentation (default: 2)'
+        help='Number of spaces for indentation (default: 9)'
     )
 
     parser.add_argument(
@@ -127,19 +157,14 @@ Examples:
     parser.add_argument(
         '--comma-before',
         action='store_true',
-        help='Place comma before items in lists'
+        default=True,
+        help='Place comma before items in lists (default: True)'
     )
 
     parser.add_argument(
         '--line-between-queries',
         type=int,
         help='Number of blank lines between queries (default: 2)'
-    )
-
-    parser.add_argument(
-        '--wrap-after',
-        type=int,
-        help='Wrap lines after N characters (0 = no wrap, default: 80)'
     )
 
     parser.add_argument(
@@ -166,12 +191,10 @@ Examples:
         config['keyword_case'] = args.keyword_case
     if args.identifier_case is not None:
         config['identifier_case'] = args.identifier_case
-    if args.comma_before:
-        config['comma_before'] = True
+    if args.comma_before is not None:
+        config['comma_before'] = args.comma_before
     if args.line_between_queries is not None:
         config['line_between_queries'] = args.line_between_queries
-    if args.wrap_after is not None:
-        config['wrap_after'] = args.wrap_after
 
     # Read SQL from stdin
     try:
