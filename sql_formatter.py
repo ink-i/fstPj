@@ -67,12 +67,15 @@ def post_process(formatted_sql, config):
             # Check if merged line contains CASE
             merged_stripped = merged.lstrip()
             if re.search(r'\bCASE\b', merged_stripped, re.IGNORECASE):
-                # Process CASE statement
+                # Process CASE statement with nesting support
                 case_lines = [merged_stripped]
                 base_indent = len(merged) - len(merged_stripped)
                 i += 2  # Skip comma and next line
 
-                # Collect lines until we find END
+                # Count CASE depth to handle nested CASE statements
+                case_depth = merged_stripped.upper().count('CASE') - merged_stripped.upper().count('END')
+
+                # Collect lines until we find matching END
                 while i < len(lines):
                     current = lines[i]
                     current_stripped = current.lstrip()
@@ -81,10 +84,15 @@ def post_process(formatted_sql, config):
                         i += 1
                         continue
 
+                    # Count CASE and END in current line
+                    case_count = current_stripped.upper().count('CASE')
+                    end_count = current_stripped.upper().count('END')
+                    case_depth += case_count - end_count
+
                     case_lines.append(current_stripped)
 
-                    # Check if this line contains END keyword
-                    if re.search(r'\bEND\b', current_stripped, re.IGNORECASE):
+                    # Check if we've closed all CASE statements
+                    if case_depth <= 0:
                         i += 1
                         break
                     i += 1
@@ -104,8 +112,10 @@ def post_process(formatted_sql, config):
             base_indent = len(line) - len(stripped)
             i += 1
 
-            # Collect lines until we find END
-            found_end = False
+            # Count CASE depth to handle nested CASE statements
+            case_depth = stripped.upper().count('CASE') - stripped.upper().count('END')
+
+            # Collect lines until we find matching END
             while i < len(lines):
                 current = lines[i]
                 current_stripped = current.lstrip()
@@ -114,11 +124,15 @@ def post_process(formatted_sql, config):
                     i += 1
                     continue
 
+                # Count CASE and END in current line
+                case_count = current_stripped.upper().count('CASE')
+                end_count = current_stripped.upper().count('END')
+                case_depth += case_count - end_count
+
                 case_lines.append(current_stripped)
 
-                # Check if this line contains END keyword
-                if re.search(r'\bEND\b', current_stripped, re.IGNORECASE):
-                    found_end = True
+                # Check if we've closed all CASE statements
+                if case_depth <= 0:
                     i += 1
                     break
                 i += 1
